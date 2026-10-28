@@ -1,0 +1,4 @@
+.env
+state.json
+journal/
+node_modules/

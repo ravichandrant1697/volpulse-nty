@@ -1,0 +1,14 @@
+{
+  "name": "volpulse-nty",
+  "version": "1.0.0",
+  "description": "NIFTY option scalper: buy the ATM weekly option on the VWAP side when futures volume surges ≥ 3×; scalp exits. Paper by default.",
+  "main": "bot.js",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node bot.js",
+    "once": "node bot.js --once",
+    "test": "node test/smoke.js"
+  },
+  "dependencies": {}
+}
