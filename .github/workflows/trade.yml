@@ -1,0 +1,58 @@
+# VolPulse Nty on GitHub Actions — two half-day jobs (a job may not run longer than 6 h).
+#   morning   03:40 UTC = 09:10 IST → runs until 12:35 IST
+#   afternoon 07:00 UTC = 12:30 IST → runs until 15:35 IST, then sends the day's journal to Telegram
+# state.json (open position, trades so far) and journal/ travel between the two jobs through actions/cache.
+# Secrets needed: UPSTOX_TOKEN (refresh daily — it expires), optional TG_BOT_TOKEN + TG_CHAT_ID.
+# NSE holidays are not known to GitHub: the bot simply finds no candles and polls idle (no trades).
+name: VolPulse Nty
+on:
+  schedule:
+    - cron: "40 3 * * 1-5"
+    - cron: "45 6 * * 1-5"
+  workflow_dispatch: {}
+concurrency:
+  group: volpulse-nty          # never two sessions at once
+  cancel-in-progress: false
+jobs:
+  session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Restore today's state and journal
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            state.json
+            journal
+          key: volpulse-nty-${{ github.run_id }}
+          restore-keys: volpulse-nty-
+      - name: Drop stale state from a previous day
+        run: |
+          TODAY=$(TZ=Asia/Kolkata date +%F)
+          if [ -f state.json ] && ! grep -q "\"date\": \"$TODAY\"" state.json; then rm -f state.json; fi
+      - name: Run the session
+        env:
+          UPSTOX_TOKEN: ${{ secrets.UPSTOX_TOKEN }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          MODE: paper
+        run: node bot.js
+      - name: Save state and journal for the next job
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            state.json
+            journal
+          key: volpulse-nty-${{ github.run_id }}
+      - name: Keep the journal as a build artifact too
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journal-${{ github.run_id }}
+          path: journal
+          if-no-files-found: ignore
